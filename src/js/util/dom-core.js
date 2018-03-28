@@ -31,6 +31,9 @@ function querySelectorAll(selector) {
     }
 }
 
+// 记录所有的事件绑定
+const eventList = []
+
 // 创建构造函数
 function DomElement(selector) {
     if (!selector) {
@@ -43,14 +46,18 @@ function DomElement(selector) {
     }
 
     this.selector = selector
+    const nodeType = selector.nodeType
 
     // 根据 selector 得出的结果（如 DOM，DOM List）
     let selectorResult = []
-    if (selector.nodeType === 1) {
+    if (nodeType === 9) {
+        // document 节点
+        selectorResult = [selector]
+    } else if (nodeType === 1) {
         // 单个 DOM 节点
         selectorResult = [selector]
-    } else if (isDOMList(selector)) {
-        // DOM List
+    } else if (isDOMList(selector) || selector instanceof Array) {
+        // DOM List 或者数组
         selectorResult = selector
     } else if (typeof selector === 'string') {
         // 字符串
@@ -95,6 +102,15 @@ DomElement.prototype = {
         return this
     },
 
+    // clone
+    clone: function (deep) {
+        const cloneList = []
+        this.forEach(elem => {
+            cloneList.push(elem.cloneNode(!!deep))
+        })
+        return $(cloneList)
+    },
+
     // 获取第几个元素
     get: function (index) {
         const length = this.length
@@ -133,9 +149,16 @@ DomElement.prototype = {
                     return
                 }
 
+                // 记录下，方便后面解绑
+                eventList.push({
+                    elem: elem,
+                    type: type,
+                    fn: fn
+                })
+
                 if (!selector) {
                     // 无代理
-                    elem.addEventListener(type, fn, false)
+                    elem.addEventListener(type, fn)
                     return
                 }
 
@@ -145,7 +168,7 @@ DomElement.prototype = {
                     if (target.matches(selector)) {
                         fn.call(target, e)
                     }
-                }, false)
+                })
             })
         })
     },
@@ -153,7 +176,7 @@ DomElement.prototype = {
     // 取消事件绑定
     off: function (type, fn) {
         return this.forEach(elem => {
-            elem.removeEventListener(type, fn, false)
+            elem.removeEventListener(type, fn)
         })
     },
 
@@ -275,6 +298,16 @@ DomElement.prototype = {
         }
 
         return $(elem.children)
+    },
+
+    // 获取子节点（包括文本节点）
+    childNodes: function () {
+        const elem = this[0]
+        if (!elem) {
+            return null
+        }
+
+        return $(elem.childNodes)
     },
 
     // 增加子节点
@@ -439,6 +472,17 @@ DomElement.prototype = {
 // new 一个对象
 function $(selector) {
     return new DomElement(selector)
+}
+
+// 解绑所有事件，用于销毁编辑器
+$.offAll = function () {
+    eventList.forEach(item => {
+        const elem = item.elem
+        const type = item.type
+        const fn = item.fn
+        // 解绑
+        elem.removeEventListener(type, fn)
+    })
 }
 
 export default $

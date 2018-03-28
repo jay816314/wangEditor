@@ -4,7 +4,47 @@
 
 import $ from '../util/dom-core.js'
 import { getPasteText, getPasteHtml, getPasteImgs } from '../util/paste-handle.js'
-import { UA } from '../util/util.js'
+import { UA, isFunction } from '../util/util.js'
+
+// 获取一个 elem.childNodes 的 JSON 数据
+function getChildrenJSON($elem) {
+    const result = []
+    const $children = $elem.childNodes() || [] // 注意 childNodes() 可以获取文本节点
+    $children.forEach(curElem => {
+        let elemResult
+        const nodeType = curElem.nodeType
+
+        // 文本节点
+        if (nodeType === 3) {
+            elemResult = curElem.textContent
+        }
+
+        // 普通 DOM 节点
+        if (nodeType === 1) {
+            elemResult = {}
+
+            // tag
+            elemResult.tag = curElem.nodeName.toLowerCase()
+            // attr
+            const attrData = []
+            const attrList = curElem.attributes || {}
+            const attrListLength = attrList.length || 0
+            for (let i = 0; i < attrListLength; i++) {
+                const attr = attrList[i]
+                attrData.push({
+                    name: attr.name,
+                    value: attr.value
+                })
+            }
+            elemResult.attrs = attrData
+            // children（递归）
+            elemResult.children = getChildrenJSON($(curElem))
+        }
+
+        result.push(elemResult)
+    })
+    return result
+}
 
 // 构造函数
 function Text(editor) {
@@ -30,8 +70,12 @@ Text.prototype = {
     html: function (val) {
         const editor = this.editor
         const $textElem = editor.$textElem
+        let html
         if (val == null) {
-            return $textElem.html()
+            html = $textElem.html()
+            // 未选中任何内容的时候点击“加粗”或者“斜体”等按钮，就得需要一个空的占位符 &#8203 ，这里替换掉
+            html = html.replace(/\u200b/gm, '')
+            return html
         } else {
             $textElem.html(val)
 
@@ -40,12 +84,23 @@ Text.prototype = {
         }
     },
 
+    // 获取 JSON
+    getJSON: function () {
+        const editor = this.editor
+        const $textElem = editor.$textElem
+        return getChildrenJSON($textElem)
+    },
+
     // 获取 设置 text
     text: function (val) {
         const editor = this.editor
         const $textElem = editor.$textElem
+        let text
         if (val == null) {
-            return $textElem.text()
+            text = $textElem.text()
+            // 未选中任何内容的时候点击“加粗”或者“斜体”等按钮，就得需要一个空的占位符 &#8203 ，这里替换掉
+            text = text.replace(/\u200b/gm, '')
+            return text
         } else {
             $textElem.text(`<p>${val}</p>`)
 
@@ -83,6 +138,9 @@ Text.prototype = {
 
         // img 点击
         this._imgHandle()
+
+        // 拖拽事件
+        this._dragHandle()
     },
 
     // 实时保存选取
@@ -115,14 +173,31 @@ Text.prototype = {
         const editor = this.editor
         const $textElem = editor.$textElem
 
+        function insertEmptyP ($selectionElem) {
+            const $p = $('<p><br></p>')
+            $p.insertBefore($selectionElem)
+            editor.selection.createRangeByElem($p, true)
+            editor.selection.restoreSelection()
+            $selectionElem.remove()
+        }
+
         // 将回车之后生成的非 <p> 的顶级标签，改为 <p>
         function pHandle(e) {
             const $selectionElem = editor.selection.getSelectionContainerElem()
             const $parentElem = $selectionElem.parent()
+
+            if ($parentElem.html() === '<code><br></code>') {
+                // 回车之前光标所在一个 <p><code>.....</code></p> ，忽然回车生成一个空的 <p><code><br></code></p>
+                // 而且继续回车跳不出去，因此只能特殊处理
+                insertEmptyP($selectionElem)
+                return
+            }
+
             if (!$parentElem.equal($textElem)) {
                 // 不是顶级标签
                 return
             }
+
             const nodeName = $selectionElem.getNodeName()
             if (nodeName === 'P') {
                 // 当前的标签是 P ，不用做处理
@@ -135,11 +210,7 @@ Text.prototype = {
             }
 
             // 插入 <p> ，并将选取定位到 <p>，删除当前标签
-            const $p = $('<p><br></p>')
-            $p.insertBefore($selectionElem)
-            editor.selection.createRangeByElem($p, true)
-            editor.selection.restoreSelection()
-            $selectionElem.remove()
+            insertEmptyP($selectionElem)
         }
 
         $textElem.on('keyup', e => {
@@ -260,8 +331,28 @@ Text.prototype = {
     // 粘贴事件（粘贴文字 粘贴图片）
     _pasteHandle: function () {
         const editor = this.editor
-        const pasteFilterStyle = editor.config.pasteFilterStyle
+        const config = editor.config
+        const pasteFilterStyle = config.pasteFilterStyle
+        const pasteTextHandle = config.pasteTextHandle
+        const ignoreImg = config.pasteIgnoreImg
         const $textElem = editor.$textElem
+
+        // 粘贴图片、文本的事件，每次只能执行一个
+        // 判断该次粘贴事件是否可以执行
+        let pasteTime = 0
+        function canDo() {
+            var now = Date.now()
+            var flag = false
+            if (now - pasteTime >= 500) {
+                // 间隔大于 500 ms ，可以执行
+                flag = true
+            }
+            pasteTime = now
+            return flag
+        }
+        function resetTime() {
+            pasteTime = 0
+        }
 
         // 粘贴文字
         $textElem.on('paste', e => {
@@ -272,8 +363,13 @@ Text.prototype = {
                 e.preventDefault()
             }
 
+            // 粘贴图片和文本，只能同时使用一个
+            if (!canDo()) {
+                return
+            }
+
             // 获取粘贴的文字
-            let pasteHtml = getPasteHtml(e, pasteFilterStyle)
+            let pasteHtml = getPasteHtml(e, pasteFilterStyle, ignoreImg)
             let pasteText = getPasteText(e)
             pasteText = pasteText.replace(/\n/gm, '<br>')
 
@@ -283,8 +379,13 @@ Text.prototype = {
             }
             const nodeName = $selectionElem.getNodeName()
 
-            // code 中粘贴忽略
+            // code 中只能粘贴纯文本
             if (nodeName === 'CODE' || nodeName === 'PRE') {
+                if (pasteTextHandle && isFunction(pasteTextHandle)) {
+                    // 用户自定义过滤处理粘贴内容
+                    pasteText = '' + (pasteTextHandle(pasteText) || '')
+                }
+                editor.cmd.do('insertHTML', `<p>${pasteText}</p>`)
                 return
             }
 
@@ -294,24 +395,24 @@ Text.prototype = {
             //     return
             // }
 
-            if (nodeName === 'DIV' || $textElem.html() === '<p><br></p>' || !pasteFilterStyle) {
-                // 是 div，可粘贴过滤样式的文字和链接。另外，不过滤粘贴的样式，也可直接插入 HTML
-                if (!pasteHtml) {
-                    return
+            if (!pasteHtml) {
+                // 没有内容，可继续执行下面的图片粘贴
+                resetTime()
+                return
+            }
+            try {
+                // firefox 中，获取的 pasteHtml 可能是没有 <ul> 包裹的 <li>
+                // 因此执行 insertHTML 会报错
+                if (pasteTextHandle && isFunction(pasteTextHandle)) {
+                    // 用户自定义过滤处理粘贴内容
+                    pasteHtml = '' + (pasteTextHandle(pasteHtml) || '')
                 }
-                try {
-                    // firefox 中，获取的 pasteHtml 可能是没有 <ul> 包裹的 <li>
-                    // 因此执行 insertHTML 会报错
-                    editor.cmd.do('insertHTML', pasteHtml)
-                } catch (ex) {
-                    // 此时使用 pasteText 来兼容一下
-                    editor.cmd.do('insertHTML', `<p>${pasteText}</p>`)
-                }
-                
-            } else {
-                // 不是 div，证明在已有内容的元素中粘贴，只粘贴纯文本
-                if (!pasteText) {
-                    return
+                editor.cmd.do('insertHTML', pasteHtml)
+            } catch (ex) {
+                // 此时使用 pasteText 来兼容一下
+                if (pasteTextHandle && isFunction(pasteTextHandle)) {
+                    // 用户自定义过滤处理粘贴内容
+                    pasteText = '' + (pasteTextHandle(pasteText) || '')
                 }
                 editor.cmd.do('insertHTML', `<p>${pasteText}</p>`)
             }
@@ -323,6 +424,11 @@ Text.prototype = {
                 return
             } else {
                 e.preventDefault()
+            }
+
+            // 粘贴图片和文本，只能同时使用一个
+            if (!canDo()) {
+                return
             }
 
             // 获取粘贴的图片
@@ -387,22 +493,23 @@ Text.prototype = {
     _imgHandle: function () {
         const editor = this.editor
         const $textElem = editor.$textElem
-        const selectedClass = 'w-e-selected'
 
         // 为图片增加 selected 样式
         $textElem.on('click', 'img', function (e) {
             const img = this
             const $img = $(img)
 
-            // 去掉所有图片的 selected 样式
-            $textElem.find('img').removeClass(selectedClass)
+            if ($img.attr('data-w-e') === '1') {
+                // 是表情图片，忽略
+                return
+            }
 
-            // 为点击的图片增加样式，并记录当前图片
-            $img.addClass(selectedClass)
+            // 记录当前点击过的图片
             editor._selectedImg = $img
 
-            // 修改选取
+            // 修改选区并 restore ，防止用户此时点击退格键，会删除其他内容
             editor.selection.createRangeByElem($img)
+            editor.selection.restoreSelection()
         })
 
         // 去掉图片的 selected 样式
@@ -411,9 +518,33 @@ Text.prototype = {
                 // 点击的是图片，忽略
                 return
             }
-            // 取消掉 selected 样式，并删除记录
-            $textElem.find('img').removeClass(selectedClass)
+            // 删除记录
             editor._selectedImg = null
+        })
+    },
+
+    // 拖拽事件
+    _dragHandle: function () {
+        const editor = this.editor
+
+        // 禁用 document 拖拽事件
+        const $document = $(document)
+        $document.on('dragleave drop dragenter dragover', function (e) {
+            e.preventDefault()
+        })
+
+        // 添加编辑区域拖拽事件
+        const $textElem = editor.$textElem
+        $textElem.on('drop', function (e) {
+            e.preventDefault()
+            const files = e.dataTransfer && e.dataTransfer.files
+            if (!files || !files.length) {
+                return
+            }
+
+            // 上传图片
+            const uploadImg = editor.uploadImg
+            uploadImg.uploadImg(files)
         })
     }
 }

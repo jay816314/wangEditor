@@ -8,6 +8,8 @@ const config = {
     menus: [
         'head',
         'bold',
+        'fontSize',
+        'fontName',
         'italic',
         'underline',
         'strikeThrough',
@@ -26,6 +28,27 @@ const config = {
         'redo'
     ],
 
+    fontNames: [
+        '宋体',
+        '微软雅黑',
+        'Arial',
+        'Tahoma',
+        'Verdana'
+    ],
+
+    colors: [
+        '#000000',
+        '#eeece0',
+        '#1c487f',
+        '#4d80bf',
+        '#c24f4a',
+        '#8baa4a',
+        '#7b5ba1',
+        '#46acc8',
+        '#f9963b',
+        '#ffffff'
+    ],
+
     // // 语言配置
     // lang: {
     //     '设置标题': 'title',
@@ -36,14 +59,101 @@ const config = {
     //     '创建': 'init'
     // },
 
+    // 表情
+    emotions: [
+        {
+            // tab 的标题
+            title: '默认',
+            // type -> 'emoji' / 'image'
+            type: 'image',
+            // content -> 数组
+            content: [
+                {
+                    alt: '[坏笑]',
+                    src: 'http://img.t.sinajs.cn/t4/appstyle/expression/ext/normal/50/pcmoren_huaixiao_org.png'
+                },
+                {
+                    alt: '[舔屏]',
+                    src: 'http://img.t.sinajs.cn/t4/appstyle/expression/ext/normal/40/pcmoren_tian_org.png'
+                },
+                {
+                    alt: '[污]',
+                    src: 'http://img.t.sinajs.cn/t4/appstyle/expression/ext/normal/3c/pcmoren_wu_org.png'
+                }
+            ]
+        },
+        {
+            // tab 的标题
+            title: '新浪',
+            // type -> 'emoji' / 'image'
+            type: 'image',
+            // content -> 数组
+            content: [
+                {
+                    src: 'http://img.t.sinajs.cn/t35/style/images/common/face/ext/normal/7a/shenshou_thumb.gif',
+                    alt: '[草泥马]'
+                },
+                {
+                    src: 'http://img.t.sinajs.cn/t35/style/images/common/face/ext/normal/60/horse2_thumb.gif',
+                    alt: '[神马]'
+                },
+                {
+                    src: 'http://img.t.sinajs.cn/t35/style/images/common/face/ext/normal/bc/fuyun_thumb.gif',
+                    alt: '[浮云]'
+                }
+            ]
+        },
+        {
+            // tab 的标题
+            title: 'emoji',
+            // type -> 'emoji' / 'image'
+            type: 'emoji',
+            // content -> 数组
+            content: '😀 😃 😄 😁 😆 😅 😂 😊 😇 🙂 🙃 😉 😓 😪 😴 🙄 🤔 😬 🤐'.split(/\s/)
+        },
+        // {
+        //     // tab 的标题
+        //     title: '手势',
+        //     // type -> 'emoji' / 'image'
+        //     type: 'emoji',
+        //     // content -> 数组
+        //     content: ['🙌', '👏', '👋', '👍', '👎', '👊', '✊', '️👌', '✋', '👐', '💪', '🙏', '️👆', '👇', '👈', '👉', '🖕', '🖐', '🤘']
+        // }
+    ],
+
     // 编辑区域的 z-index
     zIndex: 10000,
 
     // 是否开启 debug 模式（debug 模式下错误会 throw error 形式抛出）
     debug: false,
 
+    // 插入链接时候的格式校验
+    linkCheck: function (text, link) {
+        // text 是插入的文字
+        // link 是插入的链接
+        return true // 返回 true 即表示成功
+        // return '校验失败' // 返回字符串即表示失败的提示信息
+    },
+
+    // 插入网络图片的校验
+    linkImgCheck: function (src) {
+        // src 即图片的地址
+        return true // 返回 true 即表示成功
+        // return '校验失败'  // 返回字符串即表示失败的提示信息
+    },
+
     // 粘贴过滤样式，默认开启
     pasteFilterStyle: true,
+
+    // 粘贴内容时，忽略图片。默认关闭
+    pasteIgnoreImg: false,
+
+    // 对粘贴的文字进行自定义处理，返回处理后的结果。编辑器会将处理后的结果粘贴到编辑区域中。
+    // IE 暂时不支持
+    pasteTextHandle: function (content) {
+        // content 即粘贴过来的内容（html 或 纯文本），可进行自定义处理然后返回
+        return content
+    },
 
     // onchange 事件
     // onchange: function (html) {
@@ -53,6 +163,11 @@ const config = {
 
     // 是否显示添加网络图片的 tab
     showLinkImg: true,
+
+    // 插入网络图片的回调
+    linkImgCallback: function (url) {
+        // console.log(url)  // url 即插入图片的地址
+    },
 
     // 默认上传图片 max size: 5M
     uploadImgMaxSize: 5 * 1024 * 1024,
@@ -71,7 +186,7 @@ const config = {
 
     // 上传图片的自定义参数
     uploadImgParams: {
-        token: 'abcdef12345'
+        // token: 'abcdef12345'
     },
 
     // 上传图片的自定义header
@@ -83,7 +198,7 @@ const config = {
     withCredentials: false,
 
     // 自定义上传图片超时时间 ms
-    uploadImgTimeout: 5000,
+    uploadImgTimeout: 10000,
 
     // 上传图片 hook 
     uploadImgHooks: {
@@ -117,6 +232,9 @@ const config = {
             // 图片上传超时时触发
         }
     },
+
+    // 是否上传七牛云，默认为 false
+    qiniu: false,
 
     // 上传图片自定义提示方法
     // customAlert: function (info) {

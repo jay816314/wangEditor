@@ -18,6 +18,12 @@ Command.prototype = {
     do: function (name, value) {
         const editor = this.editor
 
+        // 使用 styleWithCSS
+        if (!editor._useStyleWithCSS) {
+            document.execCommand('styleWithCSS', null, true)
+            editor._useStyleWithCSS = true
+        }
+
         // 如果无选区，忽略
         if (!editor.selection.getRange()) {
             return
@@ -51,13 +57,6 @@ Command.prototype = {
     _insertHTML: function (html) {
         const editor = this.editor
         const range = editor.selection.getRange()
-
-        // 保证传入的参数是 html 代码
-        const test = /^<.+>$/.test(html)
-        if (!test && !UA.isWebkit()) {
-            // webkit 可以插入非 html 格式的文字
-            throw new Error('执行 insertHTML 命令时传入的参数必须是 html 格式')
-        }
 
         if (this.queryCommandSupported('insertHTML')) {
             // W3C

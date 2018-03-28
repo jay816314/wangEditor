@@ -4,6 +4,7 @@
 
 import { objForEach, arrForEach, percentFormat } from '../../util/util.js'
 import Progress from './progress.js'
+import { UA } from '../../util/util.js'
 
 // 构造函数
 function UploadImg(editor) {
@@ -37,11 +38,30 @@ UploadImg.prototype = {
             return
         }
         const editor = this.editor
+        const config = editor.config
+
+        // 校验格式
+        const linkImgCheck = config.linkImgCheck
+        let checkResult
+        if (linkImgCheck && typeof linkImgCheck === 'function') {
+            checkResult = linkImgCheck(link)
+            if (typeof checkResult === 'string') {
+                // 校验失败，提示信息
+                alert(checkResult)
+                return
+            }
+        }
+
         editor.cmd.do('insertHTML', `<img src="${link}" style="max-width:100%;"/>`)
 
         // 验证图片 url 是否有效，无效的话给出提示
         let img = document.createElement('img')
         img.onload = () => {
+            const callback = config.linkImgCallback
+            if (callback && typeof callback === 'function') {
+                callback(link)
+            }
+
             img = null
         }
         img.onerror = () => {
@@ -65,13 +85,15 @@ UploadImg.prototype = {
         // ------------------------------ 获取配置信息 ------------------------------
         const editor = this.editor
         const config = editor.config
-        const maxSize = config.uploadImgMaxSize
-        const maxSizeM = maxSize / 1000 / 1000
-        const maxLength = config.uploadImgMaxLength || 10000
         let uploadImgServer = config.uploadImgServer
         const uploadImgShowBase64 = config.uploadImgShowBase64
+
+        const maxSize = config.uploadImgMaxSize
+        const maxSizeM = maxSize / 1024 / 1024
+        const maxLength = config.uploadImgMaxLength || 10000
         const uploadFileName = config.uploadFileName || ''
         const uploadImgParams = config.uploadImgParams || {}
+        const uploadImgParamsWithUrl = config.uploadImgParamsWithUrl
         const uploadImgHeaders = config.uploadImgHeaders || {}
         const hooks = config.uploadImgHooks || {}
         const timeout = config.uploadImgTimeout || 3000
@@ -80,6 +102,13 @@ UploadImg.prototype = {
             withCredentials = false
         }
         const customUploadImg = config.customUploadImg
+
+        if (!customUploadImg) {
+            // 没有 customUploadImg 的情况下，需要如下两个配置才能继续进行图片上传
+            if (!uploadImgServer && !uploadImgShowBase64) {
+                return
+            }
+        }
 
         // ------------------------------ 验证文件信息 ------------------------------
         const resultFiles = []
@@ -142,12 +171,14 @@ UploadImg.prototype = {
                 val = encodeURIComponent(val)
 
                 // 第一，将参数拼接到 url 中
-                if (uploadImgServer.indexOf('?') > 0) {
-                    uploadImgServer += '&'
-                } else {
-                    uploadImgServer += '?'
+                if (uploadImgParamsWithUrl) {
+                    if (uploadImgServer.indexOf('?') > 0) {
+                        uploadImgServer += '&'
+                    } else {
+                        uploadImgServer += '?'
+                    }
+                    uploadImgServer = uploadImgServer + key + '=' + val
                 }
-                uploadImgServer = uploadImgServer + key + '=' + val
 
                 // 第二，将参数添加到 formdata 中
                 formdata.append(key, val)

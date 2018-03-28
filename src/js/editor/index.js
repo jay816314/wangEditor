@@ -10,6 +10,7 @@ import Command from '../command/index.js'
 import selectionAPI from '../selection/index.js'
 import UploadImg from './upload/upload-img.js'
 import { arrForEach, objForEach } from '../util/util.js'
+import { getRandom } from '../util/util.js'
 
 // id，累加
 let editorId = 1
@@ -114,18 +115,71 @@ Editor.prototype = {
         $textContainerElem.css('z-index', zIndex)
         $textElem.addClass('w-e-text')
 
+        // 添加 ID
+        const toolbarElemId = getRandom('toolbar-elem')
+        $toolbarElem.attr('id', toolbarElemId)
+        const textElemId = getRandom('text-elem')
+        $textElem.attr('id', textElemId)
+
         // 记录属性
         this.$toolbarElem = $toolbarElem
         this.$textContainerElem = $textContainerElem
         this.$textElem = $textElem
+        this.toolbarElemId = toolbarElemId
+        this.textElemId = textElemId
+
+        // 记录输入法的开始和结束
+        let compositionEnd = true
+        $textContainerElem.on('compositionstart', () => {
+            // 输入法开始输入
+            compositionEnd = false
+        })
+        $textContainerElem.on('compositionend', () => {
+            // 输入法结束输入
+            compositionEnd = true
+        })
 
         // 绑定 onchange
         $textContainerElem.on('click keyup', () => {
-            this.change &&  this.change()
+            // 输入法结束才出发 onchange
+            compositionEnd && this.change &&  this.change()
         })
         $toolbarElem.on('click', function () {
             this.change &&  this.change()
         })
+
+        //绑定 onfocus 与 onblur 事件
+        if(config.onfocus || config.onblur){
+            // 当前编辑器是否是焦点状态
+            this.isFocus = false
+            
+            $(document).on('click', (e) => {
+                //判断当前点击元素是否在编辑器内
+                const isChild = $textElem.isContain($(e.target))
+                
+                //判断当前点击元素是否为工具栏
+                const isToolbar = $toolbarElem.isContain($(e.target))
+                const isMenu = $toolbarElem[0] == e.target ? true : false
+
+                if (!isChild) {
+                    //若为选择工具栏中的功能，则不视为成blur操作
+                    if(isToolbar && !isMenu){
+                        return
+                    }
+
+                    if(this.isFocus){
+                        this.onblur && this.onblur()
+                    }
+                    this.isFocus = false
+                }else{
+                    if(!this.isFocus){
+                        this.onfocus && this.onfocus()
+                    }
+                    this.isFocus = true
+                }
+            })
+        }
+
     },
 
     // 封装 command
@@ -190,6 +244,14 @@ Editor.prototype = {
         let onChangeTimeoutId = 0
         let beforeChangeHtml = this.txt.html()
         const config = this.config
+
+        // onchange 触发延迟时间
+        let onchangeTimeout = config.onchangeTimeout
+        onchangeTimeout = parseInt(onchangeTimeout, 10)
+        if (!onchangeTimeout || onchangeTimeout <= 0) {
+            onchangeTimeout = 200
+        }
+
         const onchange = config.onchange
         if (onchange && typeof onchange === 'function'){
             // 触发 change 的有三个场景：
@@ -198,9 +260,13 @@ Editor.prototype = {
             // 3. editor.cmd.do()
             this.change = function () {
                 // 判断是否有变化
-                const currentHtml = this.txt.html()
+                let currentHtml = this.txt.html()
+
                 if (currentHtml.length === beforeChangeHtml.length) {
-                    return
+                    // 需要比较每一个字符
+                    if (currentHtml === beforeChangeHtml) {
+                        return
+                    }
                 }
 
                 // 执行，使用节流
@@ -211,9 +277,27 @@ Editor.prototype = {
                     // 触发配置的 onchange 函数
                     onchange(currentHtml)
                     beforeChangeHtml = currentHtml
-                }, 200)
+                }, onchangeTimeout)
             }   
         }
+
+        // -------- 绑定 onblur 事件 --------
+        const onblur = config.onblur
+        if (onblur && typeof onblur === 'function') {
+            this.onblur = function () {
+                const currentHtml = this.txt.html()
+                onblur(currentHtml)
+            }
+        }
+
+        // -------- 绑定 onfocus 事件 --------
+        const onfocus = config.onfocus
+        if (onfocus && typeof onfocus === 'function') {
+            this.onfocus = function () {
+                onfocus()
+            }
+        }
+        
     },
 
     // 创建编辑器
@@ -244,6 +328,11 @@ Editor.prototype = {
 
         // 绑定事件
         this._bindEvent()
+    },
+
+    // 解绑所有事件（暂时不对外开放）
+    _offAllEvent: function () {
+        $.offAll()
     }
 }
 

@@ -69,22 +69,95 @@
 - [done] 增加粘贴过滤样式的可配置
 - [done] 修复 IE 粘贴文字的问题
 
+### v3.0.9
+
+- [done] config 中，上传图片的 token 注视掉
+- [done] 将一些常见 API 开放，写到文档中 https://www.kancloud.cn/wangfupeng/wangeditor3/404586
+- [done] IE 火狐 插入多行代码有问题
+- [done] 粘贴时，在`<p>`中，不能只粘贴纯文本，还得要图片 
+- [done] 粘贴内容中，过滤掉`<!--xxx-->`注释
+- [done] **支持上传七牛云存储**
+
+### v3.0.10
+
+- [done] 支持插入网络图片的回调函数
+- [done] 插入链接时候的格式校验
+- [done] 支持拖拽上传
+
+### v3.0.11
+
+- [done] 如何用 textarea 创建编辑器，完善到文档中，许多人提问
+- [done] 修复`editor.customConfig.customUploadImg`不触发的 bug
+- [done] 修复有序列表和无序列表切换时 onchange 不触发的 bug
+
+### v3.0.12
+
+- [done] 增加 onfocus 和 onblur （感谢 [hold-baby](https://github.com/hold-baby) 提交的 [PR](https://github.com/wangfupeng1988/wangEditor/pull/1076)）
+- [done] 上传的自定义参数`editor.customConfig.uploadImgParams`是否拼接到 url 中，支持可配置
+- [done] onchange 触发的延迟时间，支持可配置
+
+### v3.0.13
+
+- [done] 修复图片 选中/取消选中 时，触发 onchange 的问题
+- [done] 修复只通过 length 判断 onchange 是否触发的问题
+- [done] 增加插入网络图片的校验函数
+- [done] 增加自定义处理粘贴文本的事件
+- [done] 修复选中一个图片时点击删除键会误删除其他内容的 bug 
+- [done] 修复 window chrome 中“复制图片”然后粘贴图片，会粘贴为两张的 bug 
+- [done] 修复无法撤销“引用”的问题
+
+### v3.0.14
+
+- [done] 可以配置前景色、背景色
+- [done] 回车时无法从`<p><code>....</code></p>`中跳出
+- [done] 增加获取 JSON 格式内容的 API
+
+### v3.0.15
+
+- [done] 表情兼容图片和 emoji ，都可自定义配置
+
+### v3.0.16
+
+- [done] 修复粘贴图片的 bug
+- [done] 修复`pasteTextHandle`执行两次的问题
+- [done] 修复插入链接时，文字和链接为空时，`linkCheck`不执行的 bug
+- [done] 粘贴 html 时，过滤掉其中的`data-xxx`属性
+- [done] 修复中文输入法输入过程中出发 onchange 的问题，感谢 [github.com/CongAn](https://github.com/CongAn) PR
+- [done] `editor.txt.html`和`editor.txt.text`中，替换`&#8203`字符为空字符串
+- [done] 精确图片大小计算，将`maxSize / 1000 / 1000`改为`maxSize / 1024 / 1024`
+- [done] 修复 droplist 类型菜单（颜色、背景色等）点击不准确的问题
+
+### v3.0.17
+
+- [done] 合并 pr [菜单和编辑区域分离 onfocus onblur 失效bug](https://github.com/wangfupeng1988/wangEditor/pull/1174) ，感谢 [hold-baby](https://github.com/hold-baby) 提供 pr
+- [done] 使用`document.execCommand("styleWithCSS", null, true)`，这样设置字体颜色就会用 css 而不是用`<font color=xxx>`
+
+### v3.1.0
+
+- [done] 视图增加 “字体” “字号”（字体需要文档说明）
+- [done] 支持粘贴内容时忽略图片
+
 ### 近期计划解决
 
-- 选中图片和表格时，主动弹出编辑 panel（模拟菜单的click），而不是等着用户点击（这里注意如何让用户选择不再弹出，不重复弹出）
-- IE 11直接输入文字会空一行在第二行出现内容 https://github.com/wangfupeng1988/wangEditor/issues/919
-- IE 中输入多行代码有报错
-- windows 下 word excel 的粘贴，存在垃圾数据
-- list undo redo 有问题。选中几行，先设置有序列表，再设置无序列表，然后撤销，就能复现问题
-- 调研 safari、IE 和ff中粘贴图片  https://github.com/wangfupeng1988/wangEditor/issues/831
-- 将代码在进行拆分，做到“每个程序只做一件事”，不要出现过长的代码文件。例如 `src/js/command/index.js` 和 `src/js/selection/index.js`
-
+- 外露的修改图片大小的按钮
+- **处理粘贴数据时，要把 pasteHtml 先转换成 vnode 之类的结构化对象，然后再递归处理**
+- 撤销的兼容性问题（会误伤其他编辑器或者 input textarea 等），考虑用 onchange 记录 undo 和 redo 的内容（但是得考虑直接修改 dom 的情况，如 quote code img list table 菜单）
+    - 列表撤销会删除一行？https://github.com/wangfupeng1988/wangEditor/issues/1131
+    - 页面中有 input 等输入标签时，undo redo 会误伤 https://github.com/wangfupeng1988/wangEditor/issues/1024
+    - 两个编辑器 undo 的问题 https://github.com/wangfupeng1988/wangEditor/issues/1010
+    - list undo redo 有问题。选中几行，先设置有序列表，再设置无序列表，然后撤销，就能复现问题
+- 粘贴文字的样式问题（可暂时配置 `pasteTextHandle` 自行处理）
+    - 先输入文字，再粘贴 excel 表格，样式丢失 https://github.com/wangfupeng1988/wangEditor/issues/1000
+    - IE 11 直接输入文字会空一行在第二行出现内容 https://github.com/wangfupeng1988/wangEditor/issues/919
+    - windows 下 word excel 的粘贴，存在垃圾数据
 
 ## 待排期
 
+- 调研 safari、IE 和ff中粘贴图片  https://github.com/wangfupeng1988/wangEditor/issues/831
 - 图片调整大小，表格调整的方式，是否用 toolbar 的方式？
 - 删除掉`./release`之后，执行`npm run release`会报错，原因是`fonts`文件没拷贝全，就要去替换`css`中的字体文件为`base64`格式，导致找不到文件。
 - 先点击'B'再输入内容这种形式，前期先支持 webkit 和 IE，火狐的支持后面再加上
 - 图片压缩 canvas https://github.com/think2011/localResizeIMG 
 - github 徽章 https://github.com/EyreFree/GitHubBadgeIntroduction
+- 将代码在进行拆分，做到“每个程序只做一件事”，不要出现过长的代码文件。例如 `src/js/command/index.js` 和 `src/js/selection/index.js`
 

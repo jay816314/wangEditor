@@ -28,19 +28,19 @@
 </script>
 ```
 
-其中`/upload`是上传图片的服务器端接口，接口返回的**数据格式**如下
+其中`/upload`是上传图片的服务器端接口，接口返回的**数据格式**如下（**实际返回数据时，不要加任何注释！！！**）
 
 ```json
 {
     // errno 即错误代码，0 表示没有错误。
     //       如果有错误，errno != 0，可通过下文中的监听函数 fail 拿到该错误码进行自定义处理
-    errno: 0,
+    "errno": 0,
 
     // data 是一个数组，返回若干图片的线上地址
-    data: [
-        '图片1地址',
-        '图片2地址',
-        '……'
+    "data": [
+        "图片1地址",
+        "图片2地址",
+        "……"
     ]
 }
 ```
@@ -65,12 +65,18 @@ editor.customConfig.uploadImgMaxLength = 5
 
 ## 自定义上传参数
 
-上传图片时可自定义传递一些参数，例如传递验证的`token`等。这些参数会拼接到 url 的参数中，也会被添加到`formdata`中。
+上传图片时可自定义传递一些参数，例如传递验证的`token`等。参数会被添加到`formdata`中。
 
 ```javascript
 editor.customConfig.uploadImgParams = {
     token: 'abcdef12345'  // 属性值会自动进行 encode ，此处无需 encode
 }
+```
+
+如果**还需要**将参数拼接到 url 中，可再加上如下配置
+
+```
+editor.customConfig.uploadImgParamsWithUrl = true
 ```
 
 ## 自定义 fileName
@@ -101,7 +107,7 @@ editor.customConfig.withCredentials = true
 
 ## 自定义 timeout 时间
 
-默认的 timeout 时间是 5 秒钟
+默认的 timeout 时间是 10 秒钟
 
 ```javascript
 // 将 timeout 时间改为 3s
